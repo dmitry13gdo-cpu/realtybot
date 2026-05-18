@@ -121,16 +121,16 @@ def save_request(message, price):
                      f"Когда появятся новые — сообщу!")
 
 def show_matching_flats(chat_id, max_price, min_rooms):
-    conn = sqlite3.connect('bot.db')
+    conn = sqlite3.connect(get_db_path())
     c = conn.cursor()
     
-    # Ищем квартиры по запросу
     c.execute("SELECT id, address, price, rooms, floor, area, house_type, build_year, condition, description FROM flats WHERE status='free' AND price <= ? AND rooms = ?", 
               (max_price, min_rooms))
     flats = c.fetchall()
     
     if not flats:
         bot.send_message(chat_id, "😔 Пока нет квартир под ваш запрос. Как появятся — сообщу!")
+        conn.close()
         return
     
     bot.send_message(chat_id, f"🏠 Нашёл {len(flats)} квартир(у/ы) под ваш запрос:")
@@ -138,36 +138,21 @@ def show_matching_flats(chat_id, max_price, min_rooms):
     for flat in flats:
         flat_id, address, price, rooms, floor, area, house_type, build_year, condition, description = flat
         
-        # Получаем фото для квартиры
         c.execute("SELECT photo_id FROM photos WHERE flat_id=?", (flat_id,))
         photos = c.fetchall()
         
-        # Формируем текст
-        text = f"🏠 *{address}*\n\n"
-        text += f"💰 Цена: {price:,} руб.\n"
-        text += f"🚪 Комнат: {rooms}\n"
-        text += f"🏢 Этаж: {floor}\n"
-        text += f"📐 Площадь: {area} м²\n"
-        text += f"🏗️ Тип дома: {house_type}\n"
-        text += f"📅 Год постройки: {build_year}\n"
-        text += f"🔧 Состояние: {condition}\n"
-        
+        text = f"🏠 *{address}*\n\n💰 {price:,} руб.\n🚪 {rooms} комн.\n🏢 {floor} эт.\n📐 {area} м²\n🏗️ {house_type}\n📅 {build_year}\n🔧 {condition}"
         if description:
-            text += f"\n📝 Описание: {description}\n"
+            text += f"\n📝 {description}"
         
-        # Отправляем фото (если есть)
         if photos:
-    # Создаем альбом (максимум 10 фото)
-    album = []
-    for photo in photos[:10]:
-        album.append(telebot.types.InputMediaPhoto(photo[0]))
-    
-    # Отправляем альбом
-    bot.send_media_group(chat_id, album)
-    # Отправляем текст отдельно
-    bot.send_message(chat_id, text, parse_mode='Markdown')
-else:
-    bot.send_message(chat_id, text, parse_mode='Markdown')
+            album = []
+            for photo in photos[:10]:
+                album.append(telebot.types.InputMediaPhoto(photo[0]))
+            bot.send_media_group(chat_id, album)
+            bot.send_message(chat_id, text, parse_mode='Markdown')
+        else:
+            bot.send_message(chat_id, text, parse_mode='Markdown')
     
     conn.close()
 
