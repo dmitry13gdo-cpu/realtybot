@@ -157,13 +157,17 @@ def show_matching_flats(chat_id, max_price, min_rooms):
         
         # Отправляем фото (если есть)
         if photos:
-            # Первое фото отправляем с подписью
-            bot.send_photo(chat_id, photos[0][0], caption=text, parse_mode='Markdown')
-            # Остальные фото отправляем без подписи
-            for photo in photos[1:]:
-                bot.send_photo(chat_id, photo[0])
-        else:
-            bot.send_message(chat_id, text, parse_mode='Markdown')
+    # Создаем альбом (максимум 10 фото)
+    album = []
+    for photo in photos[:10]:
+        album.append(telebot.types.InputMediaPhoto(photo[0]))
+    
+    # Отправляем альбом
+    bot.send_media_group(chat_id, album)
+    # Отправляем текст отдельно
+    bot.send_message(chat_id, text, parse_mode='Markdown')
+else:
+    bot.send_message(chat_id, text, parse_mode='Markdown')
     
     conn.close()
 
@@ -182,7 +186,7 @@ def all_flats(message):
     for flat in flats:
         flat_id, address, price, rooms, floor, area, house_type, build_year, condition, description = flat
         
-        # НОВОЕ ПОДКЛЮЧЕНИЕ ДЛЯ ФОТО (НЕ используем старое c)
+        # Получаем фото
         conn2 = sqlite3.connect('bot.db')
         c2 = conn2.cursor()
         c2.execute("SELECT photo_id FROM photos WHERE flat_id=?", (flat_id,))
@@ -192,9 +196,15 @@ def all_flats(message):
         text = f"🏠 *{address}*\n\n💰 {price:,} руб.\n🚪 {rooms} комн.\n🏢 {floor} эт.\n📐 {area} м²\n🏗️ {house_type}\n🔧 {condition}"
         
         if photos:
-            bot.send_photo(message.chat.id, photos[0][0], caption=text, parse_mode='Markdown')
-            for photo in photos[1:3]:
-                bot.send_photo(message.chat.id, photo[0])
+            # Создаем альбом из фото (максимум 10)
+            album = []
+            for photo in photos[:10]:
+                album.append(telebot.types.InputMediaPhoto(photo[0]))
+            
+            # Отправляем альбом
+            bot.send_media_group(message.chat.id, album)
+            # Отправляем текст отдельно
+            bot.send_message(message.chat.id, text, parse_mode='Markdown')
         else:
             bot.send_message(message.chat.id, text, parse_mode='Markdown')
     
