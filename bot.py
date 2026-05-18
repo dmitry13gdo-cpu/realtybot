@@ -3,7 +3,7 @@ import sqlite3
 from datetime import datetime
 
 # ========== НАСТРОЙКИ ==========
-TOKEN = "8880098678:AAFVne7xpotdvOmxI-8pHnU2DK_bXkTINbc"  # Вставьте токен от BotFather
+TOKEN = "8852010858:AAGG6ZaFrhtr7OVM4Vl-0gNH0g5DX7Jok1g"  # Вставьте токен от BotFather
 ADMIN_ID = 1855199521  # Вставьте ваш ID (узнайте у @userinfobot)
 
 bot = telebot.TeleBot(TOKEN)
