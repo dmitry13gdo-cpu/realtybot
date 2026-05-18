@@ -173,26 +173,32 @@ def all_flats(message):
     c = conn.cursor()
     c.execute("SELECT id, address, price, rooms, floor, area, house_type, build_year, condition, description FROM flats WHERE status='free' LIMIT 10")
     flats = c.fetchall()
-    conn.close()
     
     if not flats:
         bot.send_message(message.chat.id, "😔 Сейчас нет свободных квартир")
+        conn.close()
         return
     
     for flat in flats:
         flat_id, address, price, rooms, floor, area, house_type, build_year, condition, description = flat
         
-        c.execute("SELECT photo_id FROM photos WHERE flat_id=?", (flat_id,))
-        photos = c.fetchall()
+        # НОВОЕ ПОДКЛЮЧЕНИЕ ДЛЯ ФОТО (НЕ используем старое c)
+        conn2 = sqlite3.connect('bot.db')
+        c2 = conn2.cursor()
+        c2.execute("SELECT photo_id FROM photos WHERE flat_id=?", (flat_id,))
+        photos = c2.fetchall()
+        conn2.close()
         
         text = f"🏠 *{address}*\n\n💰 {price:,} руб.\n🚪 {rooms} комн.\n🏢 {floor} эт.\n📐 {area} м²\n🏗️ {house_type}\n🔧 {condition}"
         
         if photos:
             bot.send_photo(message.chat.id, photos[0][0], caption=text, parse_mode='Markdown')
-            for photo in photos[1:3]:  # максимум 3 фото в каталоге
+            for photo in photos[1:3]:
                 bot.send_photo(message.chat.id, photo[0])
         else:
             bot.send_message(message.chat.id, text, parse_mode='Markdown')
+    
+    conn.close()
 
 @bot.message_handler(func=lambda message: message.text == "📋 Мои запросы")
 def my_requests(message):
