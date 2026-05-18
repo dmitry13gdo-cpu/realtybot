@@ -1,14 +1,14 @@
 import telebot
 import sqlite3
 from datetime import datetime
+import time
+import os
 
-# ========== НАСТРОЙКИ ==========
-TOKEN = "8852010858:AAGG6ZaFrhtr7OVM4Vl-0gNH0g5DX7Jok1g"  # Вставьте токен от BotFather
-ADMIN_ID = 1855199521  # Вставьте ваш ID (узнайте у @userinfobot)
+TOKEN = "8852010858:AAGG6ZaFrhtr7OVM4Vl-0gNH0g5DX7Jok1g"  # Вставьте ваш токен
+ADMIN_ID = 1855199521  # Вставьте ваш ID
 
 bot = telebot.TeleBot(TOKEN)
 
-# ========== БАЗА ДАННЫХ ==========
 def init_db():
     conn = sqlite3.connect('bot.db')
     c = conn.cursor()
@@ -21,190 +21,241 @@ def init_db():
                   metro TEXT, created_at TEXT, is_active INTEGER)''')
     conn.commit()
     conn.close()
+    print("✅ База данных готова")
 
 init_db()
 
-# ========== КОМАНДА /start ==========
+# Словарь для временного хранения данных при добавлении квартиры
+user_data = {}
+
 @bot.message_handler(commands=['start'])
 def start(message):
-    user_id = message.from_user.id
     markup = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
     markup.add("🔍 Новый поиск", "📋 Мои запросы", "🏠 Все квартиры")
-    bot.send_message(user_id, 
-                     "🏢 Добро пожаловать в агентство недвижимости!\n\n"
-                     "Я буду искать квартиры специально для вас.\n"
-                     "Нажмите «Новый поиск», чтобы оставить запрос.",
+    bot.send_message(message.chat.id, 
+                     "🏢 Добро пожаловать!\nНажмите «Новый поиск», чтобы оставить запрос.",
                      reply_markup=markup)
 
-# ========== НОВЫЙ ПОИСК ==========
 @bot.message_handler(func=lambda message: message.text == "🔍 Новый поиск")
 def new_search(message):
-    msg = bot.send_message(message.chat.id, "💰 Введите максимальную цену в рублях:")
+    msg = bot.send_message(message.chat.id, "💰 Введите максимальную цену в рублях (только цифры):")
     bot.register_next_step_handler(msg, get_price)
 
 def get_price(message):
     try:
         price = int(message.text)
-        msg = bot.send_message(message.chat.id, "🚪 Сколько комнат? (1, 2, 3, 4+)")
+        msg = bot.send_message(message.chat.id, "🚪 Сколько комнат? (1, 2, 3, 4+):")
         bot.register_next_step_handler(msg, get_rooms, price)
     except:
-        bot.send_message(message.chat.id, "❌ Введите число!")
+        bot.send_message(message.chat.id, "❌ Введите число! Попробуйте ещё раз.")
         new_search(message)
 
 def get_rooms(message, price):
     rooms = message.text
-    msg = bot.send_message(message.chat.id, "🚇 Какое метро ближе всего?")
+    msg = bot.send_message(message.chat.id, "🚇 Ближайшее метро:")
     bot.register_next_step_handler(msg, save_request, price, rooms)
 
 def save_request(message, price, rooms):
     metro = message.text
     user_id = message.from_user.id
-    
     conn = sqlite3.connect('bot.db')
     c = conn.cursor()
     c.execute("INSERT INTO requests (user_id, max_price, min_rooms, metro, created_at, is_active) VALUES (?, ?, ?, ?, ?, 1)",
               (user_id, price, rooms, metro, datetime.now()))
     conn.commit()
     conn.close()
-    
     bot.send_message(message.chat.id, 
-                     f"✅ Запрос сохранён!\n\n"
-                     f"💰 до {price} руб.\n"
-                     f"🚪 {rooms} комн.\n"
-                     f"🚇 м. {metro}\n\n"
-                     f"Как появятся подходящие квартиры — я сообщу!")
+                     f"✅ Запрос сохранён!\n💰 до {price} руб.\n🚪 {rooms} комн.\n🚇 м. {metro}\n\nКак появятся квартиры — сообщу!")
 
-# ========== ВСЕ КВАРТИРЫ ==========
 @bot.message_handler(func=lambda message: message.text == "🏠 Все квартиры")
 def all_flats(message):
     conn = sqlite3.connect('bot.db')
     c = conn.cursor()
-    c.execute("SELECT address, price, rooms, floor, metro, area, photo_id FROM flats WHERE status='free' LIMIT 10")
+    c.execute("SELECT address, price, rooms, metro, photo_id FROM flats WHERE status='free' LIMIT 10")
     flats = c.fetchall()
     conn.close()
-    
     if not flats:
         bot.send_message(message.chat.id, "😔 Сейчас нет свободных квартир")
         return
-    
     for flat in flats:
-        address, price, rooms, floor, flat_metro, area, photo_id = flat
-        text = f"🏠 {address}\n💰 {price} руб.\n🚪 {rooms} комн.\n🚇 {flat_metro}"
+        address, price, rooms, metro, photo_id = flat
+        text = f"🏠 {address}\n💰 {price} руб.\n🚪 {rooms} комн.\n🚇 {metro}"
         if photo_id:
             bot.send_photo(message.chat.id, photo_id, caption=text)
         else:
             bot.send_message(message.chat.id, text)
 
-# ========== МОИ ЗАПРОСЫ ==========
 @bot.message_handler(func=lambda message: message.text == "📋 Мои запросы")
 def my_requests(message):
     user_id = message.from_user.id
     conn = sqlite3.connect('bot.db')
     c = conn.cursor()
-    c.execute("SELECT max_price, min_rooms, metro, created_at FROM requests WHERE user_id=? AND is_active=1", (user_id,))
+    c.execute("SELECT max_price, min_rooms, metro FROM requests WHERE user_id=? AND is_active=1", (user_id,))
     requests = c.fetchall()
     conn.close()
-    
     if not requests:
-        bot.send_message(message.chat.id, "📭 У вас нет активных запросов. Нажмите «Новый поиск»")
+        bot.send_message(message.chat.id, "📭 У вас нет активных запросов")
         return
-    
-    text = "📋 Ваши активные запросы:\n\n"
+    text = "📋 Ваши запросы:\n\n"
     for r in requests:
         text += f"💰 до {r[0]} руб. | {r[1]} комн. | м. {r[2]}\n"
     bot.send_message(message.chat.id, text)
 
-# ========== КОМАНДА ДЛЯ АДМИНА: ДОБАВИТЬ КВАРТИРУ ==========
+# ========== АДМИН: ДОБАВЛЕНИЕ КВАРТИРЫ (ИСПРАВЛЕННАЯ ВЕРСИЯ) ==========
 @bot.message_handler(commands=['add_flat'])
 def add_flat_start(message):
     if message.from_user.id != ADMIN_ID:
-        bot.send_message(message.chat.id, "❌ Нет доступа")
+        bot.send_message(message.chat.id, "❌ У вас нет доступа")
         return
+    
+    user_data[message.from_user.id] = {}
     msg = bot.send_message(message.chat.id, "🏠 Введите адрес квартиры:")
     bot.register_next_step_handler(msg, add_address)
 
 def add_address(message):
-    address = message.text
-    msg = bot.send_message(message.chat.id, "💰 Введите цену:")
-    bot.register_next_step_handler(msg, add_price, address)
+    if message.from_user.id != ADMIN_ID:
+        return
+    user_data[message.from_user.id]['address'] = message.text
+    msg = bot.send_message(message.chat.id, "💰 Введите цену (только цифры):")
+    bot.register_next_step_handler(msg, add_price)
 
-def add_price(message, address):
+def add_price(message):
+    if message.from_user.id != ADMIN_ID:
+        return
     try:
-        price = int(message.text)
+        user_data[message.from_user.id]['price'] = int(message.text)
         msg = bot.send_message(message.chat.id, "🚪 Введите количество комнат (1,2,3,4):")
-        bot.register_next_step_handler(msg, add_rooms, address, price)
+        bot.register_next_step_handler(msg, add_rooms)
     except:
-        bot.send_message(message.chat.id, "❌ Введите число!")
-        add_flat_start(message)
+        bot.send_message(message.chat.id, "❌ Введите число! Попробуйте ещё раз.")
+        msg = bot.send_message(message.chat.id, "💰 Введите цену (только цифры):")
+        bot.register_next_step_handler(msg, add_price)
 
-def add_rooms(message, address, price):
-    rooms = message.text
-    msg = bot.send_message(message.chat.id, "🏢 Введите этаж (например 3/5):")
-    bot.register_next_step_handler(msg, add_floor, address, price, rooms)
-
-def add_floor(message, address, price, rooms):
-    floor = message.text
+def add_rooms(message):
+    if message.from_user.id != ADMIN_ID:
+        return
+    user_data[message.from_user.id]['rooms'] = message.text
     msg = bot.send_message(message.chat.id, "🚇 Введите ближайшее метро:")
-    bot.register_next_step_handler(msg, add_metro, address, price, rooms, floor)
+    bot.register_next_step_handler(msg, add_metro)
 
-def add_metro(message, address, price, rooms, floor):
-    metro = message.text
-    msg = bot.send_message(message.chat.id, "📐 Введите площадь в м²:")
-    bot.register_next_step_handler(msg, add_area, address, price, rooms, floor, metro)
+def add_metro(message):
+    if message.from_user.id != ADMIN_ID:
+        return
+    user_data[message.from_user.id]['metro'] = message.text
+    msg = bot.send_message(message.chat.id, "📐 Введите площадь (в м², только цифры):")
+    bot.register_next_step_handler(msg, add_area)
 
-def add_area(message, address, price, rooms, floor, metro):
+def add_area(message):
+    if message.from_user.id != ADMIN_ID:
+        return
     try:
-        area = int(message.text)
-        msg = bot.send_message(message.chat.id, "🖼️ Отправьте фото квартиры (одно фото):")
-        bot.register_next_step_handler(msg, add_photo, address, price, rooms, floor, metro, area)
+        user_data[message.from_user.id]['area'] = int(message.text)
+        msg = bot.send_message(message.chat.id, "🖼️ Отправьте фото квартиры:")
+        bot.register_next_step_handler(msg, add_photo)
     except:
-        bot.send_message(message.chat.id, "❌ Введите число!")
-        add_metro(message, address, price, rooms, floor)
+        bot.send_message(message.chat.id, "❌ Введите число! Попробуйте ещё раз.")
+        msg = bot.send_message(message.chat.id, "📐 Введите площадь (в м², только цифры):")
+        bot.register_next_step_handler(msg, add_area)
 
-def add_photo(message, address, price, rooms, floor, metro, area):
-    photo_id = None
-    if message.photo:
-        photo_id = message.photo[-1].file_id
+def add_photo(message):
+    if message.from_user.id != ADMIN_ID:
+        return
+    
+    if not message.photo:
+        bot.send_message(message.chat.id, "❌ Пожалуйста, отправьте фото!")
+        msg = bot.send_message(message.chat.id, "🖼️ Отправьте фото квартиры:")
+        bot.register_next_step_handler(msg, add_photo)
+        return
+    
+    photo_id = message.photo[-1].file_id
+    data = user_data[message.from_user.id]
     
     conn = sqlite3.connect('bot.db')
     c = conn.cursor()
-    c.execute("INSERT INTO flats (address, price, rooms, floor, metro, area, photo_id, status) VALUES (?, ?, ?, ?, ?, ?, ?, 'free')",
-              (address, price, rooms, floor, metro, area, photo_id))
+    c.execute("""INSERT INTO flats (address, price, rooms, floor, metro, area, photo_id, status) 
+                 VALUES (?, ?, ?, ?, ?, ?, ?, 'free')""",
+              (data['address'], data['price'], data['rooms'], "не указан", 
+               data['metro'], data['area'], photo_id))
     conn.commit()
     conn.close()
     
-    bot.send_message(message.chat.id, f"✅ Квартира добавлена!\n{address} за {price} руб.")
+    # Очищаем временные данные
+    del user_data[message.from_user.id]
     
-    # Рассылаем уведомления всем подходящим клиентам
-    notify_all_users()
+    bot.send_message(message.chat.id, 
+                     f"✅ Квартира добавлена!\n"
+                     f"🏠 {data['address']}\n"
+                     f"💰 {data['price']} руб.\n"
+                     f"🚪 {data['rooms']} комн.\n"
+                     f"🚇 {data['metro']}\n"
+                     f"📐 {data['area']} м²")
+    
+    # Рассылаем уведомления клиентам
+    notify_users_about_new_flat(data['price'], data['rooms'], data['metro'], photo_id, data['address'])
 
-# ========== АВТОРАССЫЛКА ПРИ ДОБАВЛЕНИИ КВАРТИРЫ ==========
-def notify_all_users():
+def notify_users_about_new_flat(price, rooms, metro, photo_id, address):
     conn = sqlite3.connect('bot.db')
     c = conn.cursor()
-    
-    c.execute("SELECT address, price, rooms, metro, photo_id FROM flats WHERE status='free' ORDER BY id DESC LIMIT 1")
-    new_flat = c.fetchone()
-    
-    if new_flat:
-        address, price, rooms, metro, photo_id = new_flat
-        c.execute("SELECT DISTINCT user_id FROM requests WHERE is_active=1 AND max_price>=? AND min_rooms=?", (price, rooms))
-        users = c.fetchall()
-        
-        text = f"🏠 НОВАЯ КВАРТИРА ПОД ВАШ ЗАПРОС!\n\n{address}\n💰 {price} руб.\n🚪 {rooms} комн.\n🚇 {metro}"
-        
-        for user in users:
-            try:
-                if photo_id:
-                    bot.send_photo(user[0], photo_id, caption=text)
-                else:
-                    bot.send_message(user[0], text)
-            except:
-                pass
-    
+    c.execute("SELECT DISTINCT user_id FROM requests WHERE is_active=1 AND max_price>=? AND min_rooms=?", (price, rooms))
+    users = c.fetchall()
     conn.close()
+    
+    text = f"🏠 НОВАЯ КВАРТИРА ПОД ВАШ ЗАПРОС!\n\n{address}\n💰 {price} руб.\n🚪 {rooms} комн.\n🚇 {metro}"
+    
+    for user in users:
+        try:
+            if photo_id:
+                bot.send_photo(user[0], photo_id, caption=text)
+            else:
+                bot.send_message(user[0], text)
+        except:
+            pass
 
-# ========== ЗАПУСК ==========
+@bot.message_handler(commands=['help_admin'])
+def help_admin(message):
+    if message.from_user.id != ADMIN_ID:
+        return
+    bot.send_message(message.chat.id, 
+                     "👑 Админ-команды:\n"
+                     "/add_flat - добавить квартиру\n"
+                     "/list_flats - показать все квартиры\n"
+                     "/stats - статистика\n"
+                     "/help_admin - это меню")
+
+@bot.message_handler(commands=['list_flats'])
+def list_flats(message):
+    if message.from_user.id != ADMIN_ID:
+        return
+    conn = sqlite3.connect('bot.db')
+    c = conn.cursor()
+    c.execute("SELECT id, address, price, rooms FROM flats WHERE status='free'")
+    flats = c.fetchall()
+    conn.close()
+    if not flats:
+        bot.send_message(message.chat.id, "Нет квартир")
+        return
+    text = "📋 Список квартир:\n\n"
+    for flat in flats:
+        text += f"ID: {flat[0]} | {flat[1]} | {flat[2]} руб. | {flat[3]} комн.\n"
+    bot.send_message(message.chat.id, text)
+
+@bot.message_handler(commands=['stats'])
+def stats(message):
+    if message.from_user.id != ADMIN_ID:
+        return
+    conn = sqlite3.connect('bot.db')
+    c = conn.cursor()
+    c.execute("SELECT COUNT(*) FROM flats WHERE status='free'")
+    flats_count = c.fetchone()[0]
+    c.execute("SELECT COUNT(DISTINCT user_id) FROM requests WHERE is_active=1")
+    clients_count = c.fetchone()[0]
+    conn.close()
+    bot.send_message(message.chat.id, 
+                     f"📊 Статистика:\n\n"
+                     f"🏠 Квартир в базе: {flats_count}\n"
+                     f"👥 Активных клиентов: {clients_count}")
+
 if __name__ == "__main__":
-    print("✅ Бот запущен!")
+    print("🚀 Бот запущен!")
+    bot.remove_webhook()
     bot.infinity_polling()
