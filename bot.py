@@ -7,7 +7,7 @@ import time
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
 # ========== НАСТРОЙКИ ==========
-TOKEN = "8852010858:AAGG6ZaFrhtr7OVM4Vl-0gNH0g5DX7Jok1g"
+TOKEN = "8775872761:AAE_y3MuXpXcWR_Od6_ssGr2fh5xz45O1QE"
 ADMIN_ID = 1855199521  # Ваш Telegram ID
 
 # Данные Supabase (замените на свои!)
