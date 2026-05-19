@@ -12,7 +12,7 @@ ADMIN_ID = 1855199521  # Ваш Telegram ID
 
 # Данные Supabase (замените на свои!)
 SUPABASE_URL = "https://eytqpgsbxnxtnsyloyfh.supabase.co/rest/v1/"
-SUPABASE_KEY = "sb_publishable_fWNj7e9FvWN7pyvV6lF0Ww_d59H0gv6"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV5dHFwZ3NieG54dG5zeWxveWZoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkxNDUzODAsImV4cCI6MjA5NDcyMTM4MH0.aVqhd7zCj3pwjjUSf5Y0fVtscIbBMxlpxPHwacfg9vw"
 
 bot = telebot.TeleBot(TOKEN)
 
