@@ -187,6 +187,45 @@ def add_photo(message):
         bot.send_message(message.chat.id, "❌ Ошибка при сохранении")
 
 # ========== ЗАПУСК ==========
+@bot.message_handler(commands=['test_supabase'])
+def test_supabase(message):
+    if message.from_user.id != ADMIN_ID:
+        return
+    
+    bot.send_message(message.chat.id, "🔄 Проверяю подключение к Supabase...")
+    
+    # Проверяем заголовки
+    headers = {
+        "apikey": SUPABASE_KEY,
+        "Authorization": f"Bearer {SUPABASE_KEY}",
+        "Content-Type": "application/json"
+    }
+    
+    # Пробуем прочитать flats
+    try:
+        response = requests.get(
+            f"{SUPABASE_URL}/rest/v1/flats",
+            headers=headers,
+            params={"limit": 1}
+        )
+        
+        text = f"📊 Результат проверки:\n"
+        text += f"URL: {SUPABASE_URL}\n"
+        text += f"Статус: {response.status_code}\n"
+        
+        if response.status_code == 200:
+            text += "✅ Подключение к Supabase работает!"
+        elif response.status_code == 401:
+            text += "❌ Ошибка авторизации! Неправильный ключ SUPABASE_KEY"
+        elif response.status_code == 404:
+            text += "❌ Таблица 'flats' не найдена"
+        else:
+            text += f"❌ Ошибка: {response.text[:100]}"
+        
+        bot.send_message(message.chat.id, text)
+        
+    except Exception as e:
+        bot.send_message(message.chat.id, f"❌ Исключение: {str(e)}")
 if __name__ == "__main__":
     print("🚀 Бот запущен!")
     # Принудительно удаляем вебхук
