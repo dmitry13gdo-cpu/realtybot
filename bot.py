@@ -11,7 +11,7 @@ TOKEN = "8775872761:AAE_y3MuXpXcWR_Od6_ssGr2fh5xz45O1QE"
 ADMIN_ID = 1855199521  # Ваш Telegram ID
 
 # Данные Supabase (замените на свои!)
-SUPABASE_URL = "https://eytqpgsbxnxtnsyloyfh.supabase.com"
+SUPABASE_URL = "https://supabase.com/dashboard/project/eytqpgsbxnxtnsyloyfh"
 SUPABASE_KEY = "sb_publishable_fWNj7e9FvWN7pyvV6lF0Ww_d59H0gv6"
 
 bot = telebot.TeleBot(TOKEN)
