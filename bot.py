@@ -188,5 +188,9 @@ def add_photo(message):
 # ========== ЗАПУСК ==========
 if __name__ == "__main__":
     print("🚀 Бот запущен!")
+    # Принудительно удаляем вебхук
     bot.remove_webhook()
-    bot.infinity_polling()
+    # Пауза для гарантии
+    time.sleep(1)
+    # Запускаем с увеличенным таймаутом
+    bot.infinity_polling(timeout=20, long_polling_timeout=10)
