@@ -6,8 +6,8 @@ import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
 # ========== НАСТРОЙКИ ==========
-TOKEN = "ВАШ_ТОКЕН_ОТ_BOTFATHER"
-ADMIN_ID = 123456789  # Ваш Telegram ID
+TOKEN = "8852010858:AAGG6ZaFrhtr7OVM4Vl-0gNH0g5DX7Jok1g"
+ADMIN_ID = 1855199521  # Ваш Telegram ID
 
 # Данные Supabase (замените на свои!)
 SUPABASE_URL = "https://ВАШ_ПРОЕКТ.supabase.co"
